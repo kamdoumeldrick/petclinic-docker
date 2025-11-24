@@ -1,0 +1,130 @@
+
+
+services:
+  # =======================
+  # MySQL (Petclinic DB)
+  # =======================
+  mysqlserver:
+    image: mysql:8
+    container_name: mysqlserver
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: ""
+      MYSQL_ALLOW_EMPTY_PASSWORD: "true"
+      MYSQL_USER: petclinic
+      MYSQL_PASSWORD: petclinic
+      MYSQL_DATABASE: petclinic
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - mysql_config:/etc/mysql/conf.d
+    networks:
+      - backend
+
+  # =======================
+  # Petclinic Backend App
+  # =======================
+  petclinic:
+    build:
+      context: ./
+      dockerfile: Dockerfile.multi
+    container_name: petclinic
+    environment:
+      SERVER_PORT: 8080
+      MYSQL_URL: jdbc:mysql://mysqlserver/petclinic
+    ports:
+      - "8080:8080"      # App listening on port 8080
+    volumes:
+      - petclinic_app:/app
+    depends_on:
+      - mysqlserver
+    networks:
+      - backend
+
+  # =======================
+  # Redis Master
+  # =======================
+  redis-0:
+    image: redis:4.0.2
+    container_name: redis-0
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    volumes:
+      - ./redis/Redis-0.conf:/etc/redis/redis.conf
+    networks:
+      - backend
+
+  # =======================
+  # Redis Replicas
+  # =======================
+  redis-1:
+    image: redis:4.0.2
+    container_name: redis-1
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    volumes:
+      - ./redis/Redis-1.conf:/etc/redis/redis.conf
+    depends_on:
+      - redis-0
+    networks:
+      - backend
+
+  redis-2:
+    image: redis:4.0.2
+    container_name: redis-2
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    volumes:
+      - ./redis/Redis-2.conf:/etc/redis/redis.conf
+    depends_on:
+      - redis-0
+    networks:
+      - backend
+
+  # =======================
+  # Redis Sentinels
+  # =======================
+  sentinel-01:
+    image: redis:4.0.2
+    container_name: sentinel-01
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    volumes:
+      - ./redis/sentinel-01.conf:/etc/redis/sentinel.conf
+    depends_on:
+      - redis-0
+    ports:
+      - "5000:5000"
+    networks:
+      - backend
+
+  sentinel-02:
+    image: redis:4.0.2
+    container_name: sentinel-02
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    volumes:
+      - ./redis/sentinel-02.conf:/etc/redis/sentinel.conf
+    depends_on:
+      - redis-0
+    networks:
+      - backend
+
+  sentinel-03:
+    image: redis:4.0.2
+    container_name: sentinel-03
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    volumes:
+      - ./redis/sentinel-03.conf:/etc/redis/sentinel.conf
+    depends_on:
+      - redis-0
+    networks:
+      - backend
+
+# =======================
+# Networks & Volumes
+# =======================
+networks:
+  backend:
+
+volumes:
+  mysql-data:
+  mysql_config:
+  petclinic_app:
+

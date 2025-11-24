@@ -1,0 +1,43 @@
+# ===== Base stage: Maven + sources =====
+FROM eclipse-temurin:17-jdk-jammy AS base
+
+WORKDIR /app
+
+# Copy Maven wrapper and config
+COPY .mvn/ .mvn
+COPY mvnw pom.xml ./
+
+# ✅ FIX: make mvnw executable
+RUN chmod +x mvnw
+
+# Optional but good: download dependencies up front (cached layer)
+RUN ./mvnw dependency:resolve -DskipTests
+
+# Now copy the source code
+COPY src ./src
+
+
+# ===== Development stage (for local dev / hot reload) =====
+FROM base AS development
+
+CMD ["./mvnw", "spring-boot:run", "-Dspring-boot.run.profiles=mysql", "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:8000"]
+
+
+# ===== Build stage (for production JAR) =====
+FROM base AS build
+
+# ⚡ Speed up build by skipping tests inside Docker
+RUN ./mvnw package -DskipTests
+
+
+# ===== Production runtime image =====
+FROM eclipse-temurin:17-jre-jammy AS production
+
+WORKDIR /app
+EXPOSE 8080
+
+# Copy built jar from build stage
+COPY --from=build /app/target/spring-petclinic-*.jar /app/spring-petclinic.jar
+
+CMD ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app/spring-petclinic.jar"]
+
