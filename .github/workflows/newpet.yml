@@ -1,0 +1,52 @@
+name: Docker & Maven Setup
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout your code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install Docker, Docker Compose, and Maven
+      - name: Install Docker, Docker Compose, and Maven
+        run: |
+          sudo apt-get update
+          # Install Docker engine & CLI
+          sudo apt-get install -y docker.io
+          # Install Docker Compose (v1). On ubuntu-latest this is usually enough.
+          sudo apt-get install -y docker-compose
+          # Install Maven
+          sudo apt-get install -y maven
+
+      # 3. Start Docker service (needed on some runners)
+      - name: Start Docker
+        run: |
+          sudo systemctl start docker
+          sudo usermod -aG docker $USER || true
+
+      # 4. Install Java (for Maven builds)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # 5. Verify installations
+      - name: Verify tools
+        run: |
+          docker --version
+          docker-compose --version || docker compose version
+          mvn -v
+
+      # 6. (Optional) Build with Maven
+      - name: Build with Maven
+        run: mvn clean package
+
